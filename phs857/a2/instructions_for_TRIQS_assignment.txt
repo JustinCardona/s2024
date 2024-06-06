@@ -1,0 +1,24 @@
+Instructions for TRIQS assignment:
+
+First, copy the assignment to your directory with the following command:
+    $ cp /project/doc/triqs/assignment/* .
+
+Do the assignment by modifying the Jupyter file "TRIQS_assignment_IPT_and_DMFT.ipynb" that is now in your directory.
+
+Once you are finished:
+
+  - Convert the Jupyter notebook into a pdf by clicking
+    File -> Save and Export Notebook as -> PDF
+
+  - Copy the downloaded html file from your laptop to the school server
+
+  - On the school server, rename the html file to YOUR_SURNAME_triqs.html,
+    where YOUR_SURNAME has to be changed to your surname...
+
+  - hand-in your assignment by copying your file into your student project folder:
+    $ cp YOUR_SURNAME_triqs.html /project/lab_reports/userXXX
+
+    where user is your user account name.
+
+If you have problems, contact: tremblay@physique.usherbrooke.ca
+

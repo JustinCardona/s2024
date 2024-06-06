@@ -1,0 +1,2 @@
+ABINIT tutorial: https://docs.abinit.org/tutorial/base1/
+TRIQS  tutorial: https://jupyter.quantum2024.ccs.usherbrooke.ca/hub/spawn

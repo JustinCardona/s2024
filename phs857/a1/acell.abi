@@ -1,0 +1,75 @@
+# Loop over values of ecut
+ndtset 1
+
+ecut 38
+
+#Pseudoponteial
+pseudos "Ga.psp8, As.psp8"
+ 
+optcell 1
+ionmov 2
+ntime 10
+dilatmx 1.05
+ecutsm 0.5
+
+#Dataset 1 : usual self-consistent calculation
+kptopt?1 1
+nshiftk?1 1            # Let's use an unshifted kpt grid to have
+shiftk?1  0.0 0.0 0.0  # the correct fermi level in the first dataset.
+ngkpt  5 5 5         # This requires a finer grid.
+prtden?1  1         # Print the density, for use by dataset 2
+toldfe?1  1.0d-6
+
+# K-point path
+kptopt   -2
+ndivsm   20
+                       # by 4 points.
+kptbounds   0.1  0.0  0.0 # L point
+            0.0  0.0  0.0 # Gamma point
+            0.0  0.1  0.1 # X point
+
+#Dataset 2 : the band structure
+iscf2    -2
+getden2   1
+tolwfr2  1.0d-12
+
+nband2   8
+
+
+#Dataset 3 : the band structure with SO coupling
+iscf3    -2
+getden3   1
+tolwfr3  1.0d-12
+
+nspinor3 2    # Treat wavefunctions as spinors
+nband3   16   # Now we have to double the number of bands
+
+
+
+#Definition of the unit cell
+acell 3*10.217
+rprim  0.0  0.5  0.5   # FCC primitive vectors (to be scaled by acell)
+       0.5  0.0  0.5   
+       0.5  0.5  0.0
+
+#Definition of the atom types
+ntypat 2          # There is only one type of atom
+znucl 31 33          # The keyword "znucl" refers to the atomic number of the 
+                  # possible type(s) of atom. The pseudopotential(s) 
+                  # mentioned in the "files" file must correspond
+                  # to the type(s) of atom.
+                         
+
+#Definition of the atoms
+natom 2           # There are two atoms
+typat 1 2         # One is Galium, other is Arsenic
+xred              # This keyword indicate that the location of the atoms
+                  # will follow, one triplet of number for each atom
+   0.0  0.0  0.0  # Triplet giving the REDUCED coordinate of atom 1.
+   1/4  1/4  1/4  # Triplet giving the REDUCED coordinate of atom 2.
+
+#Definition of the SCF procedure
+nstep 20          # Maximal number of SCF cycles
+
+diemac 12.0
+enunit   1             # Will output the eigenenergies in eV 
