@@ -18,6 +18,7 @@ idx = np.argsort(ecut)
 ecut = ecut[idx]
 etotal_ecut = etotal_ecut[idx]
 ediff_ecut = ediff_ecut[idx]
+slope_ecut = (etotal_ecut[1:] - etotal_ecut[:-1]) / (ecut[1:] - ecut[:-1])
 
 # NGKPT TUNING
 ngkpt = open("ngkpt.dat").read().split("\n")
@@ -25,12 +26,22 @@ ngkpt = np.array(list(map(float, ngkpt[:-1])))
 diff_ngkpt = ngkpt - ngkpt[-1]
 
 # PLOTTING
+# ECUT
+plt.axvline(x = 38, color = 'b', label = 'axvline - full height')
 plt.scatter(ecut, etotal_ecut)
 plt.xlabel("Energy Cutoff (Hartree)")
 plt.ylabel("Total Energy (Hartree)")
 plt.savefig('ecut.png')
 plt.close()
 
+plt.axvline(x = 38, color = 'b', label = 'axvline - full height')
+plt.scatter(ecut[1:], slope_ecut)
+plt.xlabel("Energy Cutoff (Hartree)")
+plt.ylabel("Convergence Slope")
+plt.savefig('ecut_slope.png')
+plt.close()
+
+plt.axvline(x = 38, color = 'b', label = 'axvline - full height')
 plt.scatter(ecut, ediff_ecut)
 plt.gca().set_xscale("log")
 plt.gca().set_yscale("log")
@@ -39,12 +50,17 @@ plt.ylabel("Energy Difference (Hartree)")
 plt.savefig('ecut_diff.png')
 plt.close()
 
+
+
+# NGKPT
+plt.axvline(x = 5, color = 'b', label = 'axvline - full height')
 plt.scatter(np.arange(len(ngkpt)), ngkpt)
 plt.xlabel("Number of Grid Points for k Points Generation")
 plt.ylabel("Energy (Hartree)")
 plt.savefig('ngkpt.png')
 plt.close()
 
+plt.axvline(x = 5, color = 'b', label = 'axvline - full height')
 plt.scatter(np.arange(ngkpt.shape[0]), diff_ngkpt)
 plt.gca().set_xscale("log")
 plt.gca().set_yscale("log")
