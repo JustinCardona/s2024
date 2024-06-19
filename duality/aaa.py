@@ -1,5 +1,15 @@
 import numpy as np
 import pickle
+from scipy.linalg import eig
+
+def bsxfun(func, x, y):
+    nx = x.shape[0]
+    ny = y.shape[0]
+    M = np.empty((nx, ny))
+    for i in range(nx):
+        for j in range(ny):
+            M[i, j] = func(x[i], y[j])
+    return M
 
 class pade:
     def __init__(self, function, Z, tol=1e-13, mmax=150):
@@ -34,10 +44,41 @@ class pade:
             if np.linalg.norm(self.F-R) <= self.tol * np.linalg.norm(self.F, np.inf):
                 break
 
+
+    def prz(self):
+        m = self.w.shape[0]
+        B = np.eye(m+1)
+        B[0, 0] = 0
+        E = np.vstack((np.append(np.array([0]), self.w), np.hstack((np.ones((m, 1)), np.diag(self.z)))))
+        pol = eig(E, B)[0]
+        pol = pol[np.isfinite(pol)]
+        dz = 1e-5 * np.exp(2j * np.pi * np.arange(1, 4) / 4)
+        res = bsxfun(lambda x, y: self.eval(x + y), pol, dz) @ dz / 4
+
+        
+        E = np.vstack((np.append(np.array([0]), np.multiply(self.w, self.f)), np.hstack((np.ones((m, 1)), np.diag(self.z)))))
+
+        zer = eig(E, B)[0] 
+        zer = zer[np.isfinite(zer)]
+        return pol, res, zer
     
-    def fit(self, x):
-        self.z = np.append(self.z, x)
-        self.f = np.append(self.f, self.function(x))
+
+    def cleanup(self, tol=1e-13):
+        m = self.z.shape[0]
+        P, R, Z = self.prz()
+        P = P[np.where(R < tol)]
+        for p in P:
+            idx = np.argmin(Z - p)
+            self.z = np.delete(self.z, idx)
+            self.f = np.delete(self.f, idx)
+            R = np.delete(R, idx)
+            Z = np.delete(Z, idx)
+        self.fit()
+
+    def fit(self, x=None):
+        if x != None:
+            self.Z = np.append(self.Z, x)
+            self.F = np.append(self.F, self.function(x))
 
         A = self.loewner()
         try:
@@ -47,7 +88,7 @@ class pade:
         except:
             self.z = self.z[:-1]
             self.f = self.f[:-1]
-            print("invalid data point")
+            print('This data point is confusing, and has been forbidden.')
 
 
     def eval(self, x):

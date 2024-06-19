@@ -1,23 +1,22 @@
 from aaa import *
 from scipy.optimize import fsolve
+import matplotlib.pyplot as plt
 
-def dual_check(func, xi_0, tol=1e-5):
+def dual_check(func, xi_0, tol=1e-12):
     xi_prev = xi_0
     xi_cur = 1.1 * xi_prev
-    domain = np.array([0.9 * xi_prev, xi_prev])
+
+    domain = np.exp(np.linspace(-xi_0, xi_0 + 0.15j * np.pi, 300))
     a = pade(func, domain)
-    
-    err = a.eval(xi_cur)
-    print(err)
+    err = func(xi_cur)
     while err > tol or np.isnan(err):
         xi_prev = xi_cur
         a.fit(xi_prev)
-        xi_cur = fsolve(a.eval, xi_cur)[0]        
-        err = a.eval(xi_cur)
-        print(xi_prev, err)
+        _, _, z = a.prz()
+        xi_cur = np.max(z)
+        err = func(xi_cur)
+        print(err)
         
 
-Z = np.exp(np.linspace(-0.5, 0.5 + 0.15j * np.pi, 100))
 F = lambda z: np.tan(np.pi * z / 2)
-
 dual_check(F, 0.01)
