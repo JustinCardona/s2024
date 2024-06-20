@@ -5,7 +5,7 @@ from scipy.linalg import eig
 def bsxfun(func, x, y):
     nx = x.shape[0]
     ny = y.shape[0]
-    M = np.empty((nx, ny))
+    M = np.empty((nx, ny), dtype=complex)
     for i in range(nx):
         for j in range(ny):
             M[i, j] = func(x[i], y[j])
@@ -33,8 +33,8 @@ class pade:
             self.Z = np.delete(self.Z, j)
             self.F = np.delete(self.F, j)
             
-            A = self.loewner()
-            C = self.cauchy()
+            C = bsxfun(lambda x, y: 1 / (x - y), self.Z, self.z)
+            A = np.diag(self.F) @ C - C @ np.diag(self.f)
 
             _, _, V = np.linalg.svd(A)
             self.w = V[m]
@@ -80,14 +80,15 @@ class pade:
             self.Z = np.append(self.Z, x)
             self.F = np.append(self.F, self.function(x))
 
-        A = self.loewner()
+        C = bsxfun(lambda x, y: 1 / (x - y), self.Z, self.z)
+        A = np.diag(self.F) @ C - C @ np.diag(self.f)
         try:
             _, _, V = np.linalg.svd(A)
             m = self.z.shape[0]
             self.w = V[m-1]
         except:
-            self.z = self.z[:-1]
-            self.f = self.f[:-1]
+            self.Z = self.z[:-1]
+            self.F = self.F[:-1]
             print('This data point is confusing, and has been forbidden.')
 
 
@@ -106,23 +107,3 @@ class pade:
     def load(self, file_name):
         with open(file_name, "rb") as f:
                 self.w, self.z, self.Z, self.f, self.F = pickle.load(f)
-
-
-    def loewner(self):
-        m = self.z.shape[0]
-        M = self.Z.shape[0]
-        A = np.empty((M, m))
-        for i in range(M):
-            for j in range(m):
-                A[i, j] = (self.F[i] - self.f[j]) / (self.Z[i] - self.z[j])
-        return A
-    
-
-    def cauchy(self):
-        m = self.z.shape[0]
-        M = self.Z.shape[0]
-        C = np.empty((M, m))
-        for i in range(M):
-            for j in range(m):
-                C[i, j] = 1 / (self.Z[i] - self.z[j])
-            return C
