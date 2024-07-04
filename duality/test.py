@@ -1,39 +1,16 @@
-import numpy as np
 
-n = 5
-z = np.random.rand(n)
-Z = np.random.rand(n)
-f = np.random.rand(n)
-F = np.random.rand(n)
+def bisection_method(func, a, b, tol=1e-7):
+    c = (a + b) / 2
+    while abs(func(c)) > tol:
+        if func(c) * func(a) < 0:
+            b = c
+        else:
+            a = c
+        c = (a + b) / 2
+        print(c)
+    return c
 
-def loewner():
-    m = z.shape[0]
-    M = Z.shape[0]
-    A = np.empty((M, m))
-    for i in range(M):
-        for j in range(m):
-            A[i, j] = (F[i] - f[j]) / (Z[i] - z[j])
-    return A
+def f(x):
+    return x
 
-
-def cauchy():
-    m = z.shape[0]
-    M = Z.shape[0]
-    A = np.empty((M, m))
-    for i in range(M):
-        for j in range(m):
-            A[i, j] = 1 / (Z[i] - z[j])
-    return A
-    
-
-A = loewner()
-C = cauchy()
-SF = np.diag(F)
-Sf = np.diag(f)
-M = SF @ C - C @ Sf
-
-print(A, '\n')
-print(C, '\n')
-print(SF, '\n')
-print(Sf, '\n')
-print(A - M, '\n')
+print(bisection_method(f, -1, 2))
