@@ -70,13 +70,13 @@ function error_analysis(w_init::Int64, w::Int64, d::Int64)
 end
 
 
-width_init = range(4, 15)
+width_init = [15]
 width = range(4, 10)
-depth = range(0, 15)
+depth = range(0, 10)
 hyperparameters = Base.product(width_init, width, depth)
 errs = zeros(length(hyperparameters), 4)
 
-n_reps = 3
+n_reps = 100
 i = 1
 for h in hyperparameters
     err = map(none -> error_analysis(h[1], h[2], h[3]), range(0, n_reps))
@@ -86,3 +86,6 @@ for h in hyperparameters
     errs[i, :] = [err_mean[1], err_mean[2], err_std[1], err_std[2]]
     global i += 1
 end
+
+surface(width, depth, errs[:, 1])
+savefig("preview.png")
