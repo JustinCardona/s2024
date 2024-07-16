@@ -35,22 +35,54 @@ function update(surr::Surrogate, dx::Float64)
 end
 
 
-function dual_check(fn_acc, xi_guess::Float64, depth::Int64)
+function dual_check(s, fn_acc, xi_guess::Float64, depth::Int64, width::Int64)
     if depth == 0
         return xi_guess, fn_acc
-    else
-        approx = xi -> foldl(+, map(f -> f(xi), fn_acc))
-        update(s, 1e-5)
-        a = aaa(range(0.9 * xi_guess, 1.1 * xi_guess, 4), xi -> eval(s, xi) - approx(xi))
-        _, _, z = prz(a)
-        return dual_check(push!(fn_acc, a), z[1].re, depth-1)
+    end
+    approx = xi -> foldl(+, map(f -> f(xi), fn_acc))
+    update(s, 1e-5)
+    a = aaa(range(0.9 * xi_guess, 1.1 * xi_guess, width), xi -> eval(s, xi) - approx(xi))
+    _, _, z = prz(a)
+    try
+        return dual_check(s, push!(fn_acc, a), z[1].re, depth-1, width)
+    catch
+        return dual_check(s, push!(fn_acc, a), xi_guess, depth-1, width)
     end
 end
 
 
-xi_init = 1
-s = Surrogate(10)
-domain = range(0.0 * xi_init, 1.2 * xi_init, 10)
-a_s = aaa(domain,  xi -> eval(s, xi))
-_, _, z = prz(a_s)
-println(dual_check([a_s], z[1].re, 10)[1])
+# PERFORMANCE TESTING
+function error_analysis(w_init::Int64, w::Int64, d::Int64)
+    xi_init = 1
+    n_samples = 1000
+
+    s = Surrogate(10)
+    domain = range(0.8 * xi_init, 1.2 * xi_init, w_init)
+    a_s = aaa(domain,  xi -> eval(s, xi))
+    _, _, z = prz(a_s)
+    xi_new, fn_acc = dual_check(s, [a_s], z[1].re, d, w)
+    approx = xi -> foldl(+, map(f -> f(xi), fn_acc))    
+    domain = range(0.8 * xi_new, 1.2 * xi_new, n_samples)
+    err = map(xi -> approx(xi) - eval(s, xi), domain)
+    err_mean = foldl(+, err) / n_samples
+    err_std = sqrt(foldl(+, map(x -> (x - err_mean)^2, err))) / n_samples
+    return err_mean, err_std
+end
+
+
+width_init = range(4, 15)
+width = range(4, 10)
+depth = range(0, 15)
+hyperparameters = Base.product(width_init, width, depth)
+errs = zeros(length(hyperparameters), 4)
+
+n_reps = 3
+i = 1
+for h in hyperparameters
+    err = map(none -> error_analysis(h[1], h[2], h[3]), range(0, n_reps))
+    err_mean = foldl(.+, err) ./ n_reps
+    err_var = foldl(.+, map(x -> (x .- err_mean).^2, err))
+    err_std = sqrt(err_var[1]), sqrt(err_var[2]) ./ n_reps
+    errs[i, :] = [err_mean[1], err_mean[2], err_std[1], err_std[2]]
+    global i += 1
+end
