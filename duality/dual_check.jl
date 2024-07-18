@@ -81,7 +81,7 @@ end
 samples_domain = 10:20
 width_domain = 4:10
 depth = 5
-reps = 10000
+reps = Int64(1e4)
 hyperparameters = Base.product(samples_domain, width_domain)
 errs = err_analysis(1.0, hyperparameters, depth, reps)
 serialize("hyperparameters.dat", hyperparameters)
