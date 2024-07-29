@@ -35,7 +35,7 @@ function update(surr::Surrogate, dx::Float64)
 end
 
 
-function dual_check(s, fn_acc, err_acc, xi_guess::Float64, width::Int64, depth::Int64, depth_true::Int64)
+function dual_check(s, fn_acc, err_acc, xi_guess::Float64, width::Int64, depth::Int64, depth_true::Int64, samples_domain)
     if depth == 1
         return xi_guess, fn_acc, err_acc[1:depth_true]
     end
@@ -44,13 +44,15 @@ function dual_check(s, fn_acc, err_acc, xi_guess::Float64, width::Int64, depth::
     domain = range(xi_guess - 0.1 * abs(xi_guess), xi_guess + 0.1 * abs(xi_guess), width)
     a = aaa(domain, xi -> eval(s, xi) - approx(xi))
     _, _, z = prz(a)
-    err = map(xi -> (abs(approx(xi) - eval(s, xi))), domain)
-    err_mean = foldl(+, err) / width
     try
-        return dual_check(s, push!(fn_acc, a), push!(err_acc, err_mean), z[1].re, width, depth - 1, depth_true)
-
+        z = maximum(filter(x -> abs(a(x)) < 1e-6, map(x -> x.re, z)))
+    return dual_check(s, push!(fn_acc, a), push!(err_acc, abs(eval(s, z))), z, width, depth - 1, depth_true, samples_domain)
     catch
-        return dual_check(s, push!(fn_acc, a), push!(err_acc, err_mean), xi_guess, width, depth - 1, depth_true)
+        domain = range(xi_guess - 0.1 * abs(xi_guess), xi_guess + 0.1 * abs(xi_guess), 100)
+        plot(domain, map(x -> eval(s, x), domain))
+        savefig("preview.png")
+        println(z)
+        readline()
     end
 end
 
@@ -61,12 +63,12 @@ function error_statistics(err_acc, xi_init::Float64, samples::Int64, width::Int6
         return foldl(.+, eachcol(err_acc)) / length(err_acc)
     end
 
-    s_init = Surrogate(100)
+    s_init = Surrogate(5)
     domain = range(xi_init - 0.2 * abs(xi_init), xi_init + 0.2 * abs(xi_init), samples)
     a_s = aaa(domain,  xi -> eval(s_init, xi), mmax = Int64(floor(samples / 2)))
-    errs = map(xi -> (abs(a_s(xi) - eval(s_init, xi))), domain)
-    err_mean = foldl(+, errs) / samples
-    _, _, err_new = dual_check(s_init, [a_s], [err_mean], xi_init, width, depth, depth)
+    _, _, z = prz(a_s)
+    z = maximum(filter(x -> abs(a_s(x)) < 1e-6, map(x -> x.re, z)))
+    _, _, err_new = dual_check(s_init, [a_s], [eval(s_init, z)], z, width, depth, depth, domain)
     if isnothing(err_acc)
         return error_statistics(err_new, xi_init, samples, width, depth, reps - 1)
     end
@@ -78,10 +80,21 @@ function err_analysis(xi_init::Float64, hyperparameters, depth::Int64, reps::Int
     return map(h -> error_statistics(nothing, xi_init, h[1], h[2], depth, reps), hyperparameters)
 end
 
+
+# xi_init = 1
+# samples = 100
+# s_init = Surrogate(10)
+# domain = range(xi_init - 0.2 * abs(xi_init), xi_init + 0.2 * abs(xi_init), samples)
+# a_s = aaa(domain,  xi -> eval(s_init, xi), mmax = Int64(floor(samples / 2)))
+# errs = map(xi -> (abs(a_s(xi) - eval(s_init, xi))), domain)
+# err_mean = foldl(+, errs) / samples
+# _, _, err_new = dual_check(s_init, [a_s], [err_mean], 1.0, 10, 5, 5, domain)
+# println(err_new)
+
 samples_domain = 10:20
 width_domain = 4:10
 depth = 5
-reps = Int64(1e4)
+reps = Int64(1e1)
 hyperparameters = Base.product(samples_domain, width_domain)
 errs = err_analysis(1.0, hyperparameters, depth, reps)
 serialize("hyperparameters.dat", hyperparameters)
