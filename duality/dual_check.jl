@@ -1,4 +1,4 @@
-using LinearAlgebra, BaryRational, Serialization, Plots, Distributed
+using LinearAlgebra, BaryRational, Serialization, Plots, ThreadTools, BenchmarkTools
 import Base.:+
 
 a::BaryRational.AAAapprox + b::BaryRational.AAAapprox = BaryRational.AAAapprox(vcat(a.x, b.x), vcat(a.f, b.f), vcat(a.w, b.w), vcat(a.errvec, b.errvec))
@@ -52,7 +52,7 @@ end
 
 # ERROR TESTING
 function error_of_h(xi_init::Float64, samples::Int64, width::Int64, depth::Int64)
-    s_init = Surrogate(100)
+    s_init = Surrogate(10)
     domain = range(xi_init - 0.2 * abs(xi_init), xi_init + 0.2 * abs(xi_init), samples)
     a_s = aaa(domain,  xi -> eval(s_init, xi), mmax = Int64(floor(samples / 2)))
     _, _, z = prz(a_s)
@@ -64,25 +64,30 @@ end
 
 
 function err_analysis(xi_init::Float64, hyperparameters, depth::Int64, reps::Int64)
-    e_of_h = () -> map(h -> error_of_h(xi_init, h[1], h[2], depth), hyperparameters)
-    errs = pmap(x -> e_of_h(), range(1, reps))
-    return foldl(.+, errs) ./ reps
+    n = length(hyperparameters)
+    errs = zeros(Float32, n, depth)
+    @threads for _ in 1:reps
+        for (i, h) in enumerate(hyperparameters)
+            errs[i, :] .+= error_of_h(xi_init, h[1], h[2], depth)
+        end
+    end
+    return errs ./ reps
 end
 
 
 samples_domain = 10:20
 width_domain = 4:10
 depth = 10
-reps = Int64(1e5)
+reps = Int64(1e2)
 hyperparameters = Base.product(samples_domain, width_domain)
-errs = err_analysis(1.0, hyperparameters, depth, reps)
+@time errs = err_analysis(1.0, hyperparameters, depth, reps)
 serialize("hyperparameters.dat", hyperparameters)
 serialize("errs.dat", errs)
 
 n = length(hyperparameters)
 s = reshape(map(h -> h[1], hyperparameters), n)
 w = reshape(map(h -> h[2], hyperparameters), n)
-e = reshape(map(e -> foldl(+, e) / depth, errs), n)
+e = reshape(sum(errs, dims = 2), length(hyperparameters))
 scatter(s, w, e)
 xlabel!("samples")
 ylabel!("width")

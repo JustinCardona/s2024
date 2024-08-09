@@ -2,6 +2,6 @@ using Serialization
 
 e = deserialize("errs.dat")
 d = size(e)
-errs = foldl(.+, e) / (d[1] * d[2])
+# errs = foldl(.+, e) / (d[1] * d[2])
 
-println(errs)
+println(sum(e, dims = 1))

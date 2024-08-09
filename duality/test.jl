@@ -23,15 +23,15 @@ using BenchmarkTools
 @btime sequential_add!($y, $x)
 @btime parallel_add!($y, $x)
 
-using CUDA
+# using CUDA
 
-x_d = CUDA.fill(1.0f0, N)  # a vector stored on the GPU filled with 1.0 (Float32)
-y_d = CUDA.fill(2.0f0, N)  # a vector stored on the GPU filled with 2.0
-y_d .+= x_d
+# x_d = CUDA.fill(1.0f0, N)  # a vector stored on the GPU filled with 1.0 (Float32)
+# y_d = CUDA.fill(2.0f0, N)  # a vector stored on the GPU filled with 2.0
+# y_d .+= x_d
 
-function add_broadcast!(y, x)
-    CUDA.@sync y .+= x
-    return
-end
+# function add_broadcast!(y, x)
+#     CUDA.@sync y .+= x
+#     return
+# end
 
-@btime add_broadcast!($y_d, $x_d)
+# @btime add_broadcast!($y_d, $x_d)
