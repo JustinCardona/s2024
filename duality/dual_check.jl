@@ -39,6 +39,11 @@ end
 
 
 function dual_check(s::Surrogate, approx::BaryRational.AAAapprox, err_acc, xi_guess::Float64, width::Int64, depth::Int64, tol = 1e-3)
+    domain = range(xi_guess - 0.1 * abs(xi_guess), xi_guess + 0.1 * abs(xi_guess), 100)
+    plot(domain, [map(x -> approx(x), domain), map(x -> eval(s, x), domain)])
+    savefig("preview.png")
+    println(depth)
+    readline()
     if depth == 1
         return approx, err_acc, xi_guess
     end
