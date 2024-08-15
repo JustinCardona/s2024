@@ -1,4 +1,4 @@
-using LinearAlgebra, BaryRational, Serialization, Plots, ThreadTools, BenchmarkTools
+using LinearAlgebra, BaryRational, Serialization, Plots, ThreadTools, BenchmarkTools, IterativeSolvers
 import Base.:+
 
 a::BaryRational.AAAapprox + b::BaryRational.AAAapprox = BaryRational.AAAapprox(vcat(a.x, b.x), vcat(a.f, b.f), vcat(a.w, b.w), vcat(a.errvec, b.errvec))
@@ -24,7 +24,7 @@ end
 
 
 function eval(surr::Surrogate, xi::Float64)
-    M = (surr.a1 + xi) .* surr.P1 + surr.P0
+    M = (surr.a0 + xi) .* surr.P0 + surr.a1 .* surr.P1
     x = M \ surr.s
     return ((Adjoint(x) * surr.s).im - Adjoint(x) * surr.P0 * x).re    
 end
@@ -39,7 +39,7 @@ end
 
 
 function dual_check(s::Surrogate, approx::BaryRational.AAAapprox, err_acc, xi_guess::Float64, width::Int64, depth::Int64, tol = 1e-3)
-    domain = range(xi_guess - 0.3 * abs(xi_guess), xi_guess + 0.3 * abs(xi_guess), 100)
+    # domain = range(xi_guess - 0.3 * abs(xi_guess), xi_guess + 0.3 * abs(xi_guess), 100)
     # plot(domain, [map(x -> approx(x), domain), map(x -> eval(s, x), domain)])
     # savefig("preview.png")
     # readline()
@@ -48,13 +48,14 @@ function dual_check(s::Surrogate, approx::BaryRational.AAAapprox, err_acc, xi_gu
     end
     _, _, z = prz(approx)
     z = maximum(map(x -> x.re, filter(x -> x.im < tol, z)))
-    update(s, 1e-3)
-    domain = range(z - 0.1 * abs(z), z + 0.1 * abs(z), width)
+    update(s, 0.0)
+    domain = range(z - 0.2 * abs(z), z + 0.2 * abs(z), width)
     err = aaa(domain, x -> approx(x) - eval(s, x))
     n = 10
     domain = range(z - 0.1 * abs(z), z + 0.1 * abs(z), n)
     approx += err
-    e_new = maximum(map(x -> abs(eval(s, x) - approx(x)), domain))
+    # e_new = sum(map(x -> abs(eval(s, x) - approx(x)), domain)) / 10
+    e_new = abs(eval(s, z))
     return dual_check(s, approx, push!(err_acc, e_new), z, width, depth - 1)
 end
 
@@ -84,8 +85,8 @@ function err_analysis(xi_init::Float64, hyperparameters, depth::Int64, reps::Int
 end
 
 
-samples_domain = 10:20
-width_domain = 4:10
+samples_domain = 10:30
+width_domain = 4:15
 depth = 10
 reps = Int64(1e2)
 hyperparameters = Base.product(samples_domain, width_domain)
@@ -97,4 +98,6 @@ serialize("errs.dat", errs)
 # domain = range(0, 10, 100)
 # a = aaa(domain,  xi -> eval(s, xi))
 # _, _, z = prz(a)
-# print(maximum(map(x -> x.re, z)))
+# z = maximum(map(x -> x.re, z))
+# println(a(z))
+# println(eval(s, z))

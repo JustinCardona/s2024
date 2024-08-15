@@ -1,4 +1,4 @@
-using LinearAlgebra, BaryRational, Serialization, Plots, ThreadTools, BenchmarkTools
+using LinearAlgebra, BaryRational, Serialization, Plots, ThreadTools, BenchmarkTools, IterativeSolvers, CUDA
 import Base.:+
 
 a::BaryRational.AAAapprox + b::BaryRational.AAAapprox = BaryRational.AAAapprox(vcat(a.x, b.x), vcat(a.f, b.f), vcat(a.w, b.w), vcat(a.errvec, b.errvec))
@@ -7,24 +7,24 @@ a::BaryRational.AAAapprox + b::BaryRational.AAAapprox = BaryRational.AAAapprox(v
 mutable struct Surrogate
     a0::Float64
     a1::Float64
-    s::Vector{ComplexF64}
-    P0::Matrix{ComplexF64}
-    P1::Matrix{ComplexF64}
+    s::AbstractVector{ComplexF64}
+    P0::AbstractMatrix{ComplexF64}
+    P1::AbstractMatrix{ComplexF64}
 
     function Surrogate(n::Int64)
-        a0 = rand(Float64)
-        a1 = rand(Float64)
-        s = rand(ComplexF64, n)
-        A = rand(ComplexF64, n, n);
+        a0 = CUDA.rand(Float64)
+        a1 = CUDA.rand(Float64)
+        s = CUDA.rand(ComplexF64, n)
+        A = CUDA.rand(ComplexF64, n, n);
         P0 = (A + Adjoint(A)) / 2;
-        P1 = rand(ComplexF64, n, n);
+        P1 = CUDA.rand(ComplexF64, n, n);
         new(a0, a1, s, P0, P1)
     end
 end
 
 
 function eval(surr::Surrogate, xi::Float64)
-    M = (surr.a1 + xi) .* surr.P1
+    M = (surr.a0 + xi) .* surr.P0 + surr.a1 .* surr.P1
     x = M \ surr.s
     return ((Adjoint(x) * surr.s).im - Adjoint(x) * surr.P0 * x).re    
 end
@@ -42,23 +42,27 @@ function dual_check(s::Surrogate, approx::BaryRational.AAAapprox, err_acc, xi_gu
     # domain = range(xi_guess - 0.3 * abs(xi_guess), xi_guess + 0.3 * abs(xi_guess), 100)
     # plot(domain, [map(x -> approx(x), domain), map(x -> eval(s, x), domain)])
     # savefig("preview.png")
-    # println(depth)
     # readline()
     if depth == 1
         return approx, err_acc, xi_guess
     end
     _, _, z = prz(approx)
     z = maximum(map(x -> x.re, filter(x -> x.im < tol, z)))
-    update(s, 1e-2)
-    domain = range(z - 0.1 * abs(z), z + 0.1 * abs(z), width)
+    update(s, 0.0)
+    domain = range(z - 0.2 * abs(z), z + 0.2 * abs(z), width)
     err = aaa(domain, x -> approx(x) - eval(s, x))
-    return dual_check(s, approx + err, push!(err_acc, abs(eval(s, z))), z, width, depth - 1)
+    n = 10
+    domain = range(z - 0.1 * abs(z), z + 0.1 * abs(z), n)
+    approx += err
+    # e_new = sum(map(x -> abs(eval(s, x) - approx(x)), domain)) / 10
+    e_new = abs(eval(s, z))
+    return dual_check(s, approx, push!(err_acc, e_new), z, width, depth - 1)
 end
 
 
 # ERROR TESTING
 function error_of_h(xi_init::Float64, samples::Int64, width::Int64, depth::Int64)
-    s_init = Surrogate(5)
+    s_init = Surrogate(2)
     domain = range(xi_init - 0.2 * abs(xi_init), xi_init + 0.2 * abs(xi_init), samples)
     a_s = aaa(domain,  xi -> eval(s_init, xi), mmax = Int64(floor(samples / 2)))
     _, _, z = prz(a_s)
@@ -89,3 +93,11 @@ hyperparameters = Base.product(samples_domain, width_domain)
 @time errs = err_analysis(1.0, hyperparameters, depth, reps)
 serialize("hyperparameters.dat", hyperparameters)
 serialize("errs.dat", errs)
+
+# s = Surrogate(100)
+# domain = range(0, 10, 100)
+# a = aaa(domain,  xi -> eval(s, xi))
+# _, _, z = prz(a)
+# z = maximum(map(x -> x.re, z))
+# println(a(z))
+# println(eval(s, z))
