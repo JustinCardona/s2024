@@ -1,4 +1,4 @@
-using LinearAlgebra, BaryRational, Serialization, Plots
+using LinearAlgebra, BaryRational, Serialization, Plots, ThreadTools, BenchmarkTools
 import Base.:+
 
 a::BaryRational.AAAapprox + b::BaryRational.AAAapprox = BaryRational.AAAapprox(vcat(a.x, b.x), vcat(a.f, b.f), vcat(a.w, b.w), vcat(a.errvec, b.errvec))
@@ -24,9 +24,8 @@ end
 
 
 function eval(surr::Surrogate, xi::Float64)
-    # M = (surr.a1 + xi) .* surr.P0 + surr.a0 .* surr.P1;
-    M = (surr.a1 + xi) .* surr.P1;# + surr.a0 .* surr.P1;
-    x = M \ surr.s;
+    M = (surr.a1 + xi) .* surr.P1
+    x = M \ surr.s
     return ((Adjoint(x) * surr.s).im - Adjoint(x) * surr.P0 * x).re    
 end
 
@@ -40,56 +39,53 @@ end
 
 
 function dual_check(s::Surrogate, approx::BaryRational.AAAapprox, err_acc, xi_guess::Float64, width::Int64, depth::Int64, tol = 1e-3)
+    # domain = range(xi_guess - 0.3 * abs(xi_guess), xi_guess + 0.3 * abs(xi_guess), 100)
+    # plot(domain, [map(x -> approx(x), domain), map(x -> eval(s, x), domain)])
+    # savefig("preview.png")
+    # println(depth)
+    # readline()
     if depth == 1
         return approx, err_acc, xi_guess
     end
     _, _, z = prz(approx)
     z = maximum(map(x -> x.re, filter(x -> x.im < tol, z)))
     update(s, 1e-2)
-    err = aaa(range(z - 0.1 * abs(z), z + 0.1 * abs(z), 5), x -> approx(x) - eval(s, x))
+    domain = range(z - 0.1 * abs(z), z + 0.1 * abs(z), width)
+    err = aaa(domain, x -> approx(x) - eval(s, x))
     return dual_check(s, approx + err, push!(err_acc, abs(eval(s, z))), z, width, depth - 1)
 end
 
 
 # ERROR TESTING
-function error_statistics(err_acc, xi_init::Float64, samples::Int64, width::Int64, depth::Int64, reps::Int64)
-    if reps == 0
-        return foldl(.+, eachcol(err_acc)) / length(err_acc)
-    end
-
-    s_init = Surrogate(2)
+function error_of_h(xi_init::Float64, samples::Int64, width::Int64, depth::Int64)
+    s_init = Surrogate(5)
     domain = range(xi_init - 0.2 * abs(xi_init), xi_init + 0.2 * abs(xi_init), samples)
     a_s = aaa(domain,  xi -> eval(s_init, xi), mmax = Int64(floor(samples / 2)))
     _, _, z = prz(a_s)
-    z = maximum(filter(x -> abs(a_s(x)) < 1e-6, map(x -> x.re, z)))
+    z = maximum(map(x -> x.re, z))
 
     _, err_new, _ = dual_check(s_init, a_s, [abs(eval(s_init, z))], z, width, depth)
-    if isnothing(err_acc)
-        return error_statistics(err_new, xi_init, samples, width, depth, reps - 1)
-    end
-    return error_statistics(hcat(err_acc, err_new), xi_init, samples, width, depth, reps - 1)
+    return err_new
 end
 
 
 function err_analysis(xi_init::Float64, hyperparameters, depth::Int64, reps::Int64)
-    return map(h -> error_statistics(nothing, xi_init, h[1], h[2], depth, reps), hyperparameters)
+    n = length(hyperparameters)
+    errs = zeros(Float32, n, depth)
+    @threads for _ in 1:reps
+        for (i, h) in enumerate(hyperparameters)
+            errs[i, :] .+= error_of_h(xi_init, h[1], h[2], depth)
+        end
+    end
+    return errs ./ reps
 end
 
 
 samples_domain = 10:20
 width_domain = 4:10
-depth = 5
+depth = 10
 reps = Int64(1e2)
 hyperparameters = Base.product(samples_domain, width_domain)
 @time errs = err_analysis(1.0, hyperparameters, depth, reps)
 serialize("hyperparameters.dat", hyperparameters)
 serialize("errs.dat", errs)
-
-n = length(hyperparameters)
-s = reshape(map(h -> h[1], hyperparameters), n)
-w = reshape(map(h -> h[2], hyperparameters), n)
-e = reshape(map(e -> foldl(+, e) / depth, errs), n)
-scatter(s, w, e)
-xlabel!("samples")
-ylabel!("width")
-savefig("preview.png")
