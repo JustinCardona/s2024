@@ -66,24 +66,29 @@ function optimize_surr(s::Surrogate, z::Float64, width_init::Int, width::Int, de
 end
 
 # TESTING
-
-samples = 1e6
+samples = Int(1e1)
 depth = 5
-s_size = 100
-# n, errs = 0, zeros(depth, 3)
-n, errs = deserialize("errs_good.dat")
-@Threads.threads for i in range(1, samples)
-    try
-        global errs += optimize_surr(Surrogate(s_size), 1.0, 8, 2, depth, 1e-2, 1e-2)
-        global n += 1
-    catch
-        println("ERROR")
+s_size = Int(1e3)
+f_name = "errs_"*string(s_size)*".dat"
+
+while true
+    errs = zeros(samples, depth, 3)
+    if isfile(f_name)
+        errs_old = deserialize(f_name)
+        println(size(errs_old, 1))
     end
-    serialize("errs_good.dat", [n, errs])
-    println(n)
+    
+    for i in range(1, samples)
+        try
+            errs[i, :, :] = optimize_surr(Surrogate(s_size), 1.0, 8, 2, depth, 1e-2, 1e-2)
+        catch
+            println("\tERROR")
+        end
+        println("\t", i)
+    end
+    if isfile(f_name)
+        serialize(f_name, vcat(errs_old, errs))
+    else
+        serialize(f_name, errs)
+    end
 end
-errs /= n
-samples = vcat(errs'[3, 1], map(i -> errs'[3, i] - errs'[3, i-1], range(2, size(errs, 1))))
-println(errs'[1, :])
-println(errs'[2, :])
-println(samples)
