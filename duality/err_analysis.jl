@@ -14,5 +14,5 @@ end
 samples = map(i -> diff(errs[i, :]), range(1, size(errs, 1)))
 samples = foldl(hcat, samples)'
 
-histogram(samples[:, 3])
+histogram(samples[:, 1])
 savefig("preview.png")

@@ -47,7 +47,7 @@ function find_zero(s::Surrogate, z::Float64, width_init::Int, width::Int, domain
     a, domain, codomain = approximate(s, z, width_init, domain, codomain, tol)
     _, _, zeros = prz(a)
     z = maximum(map(x -> real(x), zeros))
-    if abs(eval(s, z)) < tol || search_depth == 15
+    if abs(eval(s, z)) < tol || search_depth == 20
         return z, a, domain, codomain
     end
     return find_zero(s, z, width, width, domain, codomain, tol, search_depth+1)
@@ -68,7 +68,7 @@ end
 # TESTING
 samples = Int(1e1)
 depth = 5
-s_size = Int(1e3)
+s_size = Int(452_984_832)
 f_name = "errs_"*string(s_size)*".dat"
 
 while true
@@ -81,6 +81,7 @@ while true
     for i in range(1, samples)
         try
             errs[i, :, :] = optimize_surr(Surrogate(s_size), 1.0, 8, 2, depth, 1e-2, 1e-2)
+            println("\t", i)
         catch
             println("\tERROR")
         end
